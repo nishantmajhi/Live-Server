@@ -1,0 +1,87 @@
+name: Build and Release Live Server
+
+# Push a tag like "v1.0.0" to build liveserver.exe, wrap it in a
+# self-contained installer, and publish it as a GitHub Release.
+# You can also trigger it manually from the Actions tab.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version number (e.g. 1.0.0)"
+        required: true
+        default: "1.0.0"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: src
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # Before building a release, check the request handling. The live-reload
+      # endpoint was broken for the whole life of this project and shipped in
+      # every release, because nothing exercised it.
+      - name: Run tests
+        shell: cmd
+        working-directory: .
+        run: |
+          cl /nologo /W4 /Fe:http_test.exe tests\http_test.c src\http.c
+          if errorlevel 1 exit /b 1
+          http_test.exe
+          if errorlevel 1 exit /b 1
+
+      - name: Build liveserver.exe
+        shell: cmd
+        run: |
+          rc /nologo liveserver.rc
+          if errorlevel 1 exit /b 1
+          cl /O2 /nologo liveserver.c http.c liveserver.res ws2_32.lib shell32.lib
+          if errorlevel 1 exit /b 1
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: cmd
+        run: |
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=${{ steps.version.outputs.version }} installer.iss
+          if errorlevel 1 exit /b 1
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: LiveServerSetup
+          path: src/Output/LiveServerSetup.exe
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Live Server v${{ steps.version.outputs.version }}
+          files: src/Output/LiveServerSetup.exe
+          generate_release_notes: true

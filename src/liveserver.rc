@@ -1,0 +1,12 @@
+// liveserver.rc
+//
+// Embeds app_icon.ico into liveserver.exe as its application icon, so it
+// shows a proper icon in Explorer, the taskbar, and Alt-Tab instead of the
+// generic Windows console-app icon.
+//
+// The resource ID "1" is referenced as IDI_APPICON in liveserver.c via
+// LoadIcon(hInstance, MAKEINTRESOURCE(1)), and Windows also automatically
+// uses whichever icon has the lowest ID (this one) as the .exe file's icon
+// shown in Explorer.
+
+1 ICON "app_icon.ico"

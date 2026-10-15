@@ -1,0 +1,7 @@
+# Build output
+*.exe
+*.obj
+*.o
+*.res
+liveserver_res.o
+Output/

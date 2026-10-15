@@ -1,0 +1,20 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      # The request-handling tests, built with the runner's MinGW gcc. The
+      # release workflow builds them again with MSVC before cutting a release.
+      - run: tests\build.bat
+        shell: cmd
